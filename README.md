@@ -1,9 +1,9 @@
 # uvwtr
 
-## UV display and suncream suggestions
+## UV display and sunscreen suggestions
 
     A simple web app that displays UV data 
-    and provides suggestions for using suncream 
+    and provides suggestions for using sunscreen 
     around your current location or any city you request.
 
 ### Tech Stack
@@ -16,5 +16,5 @@
 ## How to run
 
     go build
-    
+
     go run
