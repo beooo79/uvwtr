@@ -2,14 +2,29 @@ package main
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
+	"text/template"
 )
+
+//go:embed templates
+var templateHTML embed.FS
+
+var model *Model
+
+type Model struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	UVIndex   int     `json:"uvIndex"`
+	CityName  string  `json:"cityName"`
+}
 
 type GeoResponse struct {
 	Results []struct {
@@ -19,6 +34,8 @@ type GeoResponse struct {
 }
 
 func geoLocationForCity(cityName string) (*GeoResponse, error) {
+	fmt.Println("+++loc for CITY+++", cityName)
+
 	client := &http.Client{}
 
 	encodedCityName := url.QueryEscape(html.EscapeString(cityName))
@@ -54,7 +71,35 @@ func geoLocationForCity(cityName string) (*GeoResponse, error) {
 	}
 }
 
+func getMapHandler(w http.ResponseWriter, req *http.Request) {
+	tmpl := template.Must(template.ParseFS(templateHTML, "templates/map.html"))
+	tmpl.Execute(w, model)
+}
+
+func getLocationHandler(w http.ResponseWriter, req *http.Request) {
+	params := req.URL.Query()
+	var cityName string
+	for k, v := range params {
+		if k == "cityName" {
+			cityName = v[0]
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		geoResp, _ := geoLocationForCity(cityName)
+		json.NewEncoder(w).Encode(geoResp)
+	}
+}
+
 func main() {
 	fmt.Println(geoLocationForCity("Bernhausen"))
 
+	// http server init
+	mux := http.NewServeMux()
+
+	// http endpoints
+	mux.HandleFunc("GET /loc", getLocationHandler)
+	mux.HandleFunc("GET /uv", getMapHandler)
+
+	// start http server
+	log.Fatal(http.ListenAndServe(":3000", mux))
 }
