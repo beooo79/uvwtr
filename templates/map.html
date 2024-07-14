@@ -35,27 +35,29 @@
         <div class="block"></div>
         <div class="container" style="height: 500px; width: 700px;" id="map"></div>
         <script>
-
             const x = document.getElementById("container1");
-
+            var browserLat = null;
+            var browserLon = null;
             function showPosition(position) {
-                x.innerHTML = "Latitude: " + position.coords.latitude +
-                    "<br>Longitude: " + position.coords.longitude;
+                browserLat = position.coords.latitude;
+                browserLon = position.coords.longitude;
             }
             function getLocation() {
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(showPosition);
-                } else {
-                    x.innerHTML = "Geolocation is not supported by this browser.";
                 }
             }
             getLocation();
 
-            const lat = {{ .Latitude }};
-            const lon = {{ .Longitude }};
-            const cityName = '{{ .CityName }}';
+            let modelLat =  {{ .Latitude }};
+            let modelLon = {{ .Longitude }};
+            let lat = modelLat !=null ? modelLat : browserLat;
+            let lon = modelLon !=null ? modelLon : browserLon;
 
-            var map = L.map('map').setView([lat, lon], 10);
+            console.log(modelLat, modelLon, browserLat, browserLon)
+            const cityName = '{{ .CityName }}';
+            
+            var map = L.map('map').setView([lat , lon], 10);
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 20,
                 attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
