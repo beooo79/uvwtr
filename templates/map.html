@@ -18,7 +18,7 @@
 
 <body>
 
-    <div class="container has-text-centered">
+    <div id="container1" class="container has-text-centered">
         <h1 class="title">UV Wetter Karte</h1>
         <p class="subtitle">Zeigt Dir die UV Lage in Deiner Umgebung an.</p>
 
@@ -26,9 +26,7 @@
             <div class="field">
                 <p class="control">
                 <form>
-                    <input class="input is-rounded" 
-                        type="text" 
-                        name="cityName"
+                    <input class="input is-rounded" type="text" name="cityName"
                         placeholder="Gib den Namen einer Stadt ein" />
                 </form>
                 </p>
@@ -37,12 +35,29 @@
         <div class="block"></div>
         <div class="container" style="height: 500px; width: 700px;" id="map"></div>
         <script>
+
+            const x = document.getElementById("container1");
+
+            function showPosition(position) {
+                x.innerHTML = "Latitude: " + position.coords.latitude +
+                    "<br>Longitude: " + position.coords.longitude;
+            }
+            function getLocation() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(showPosition);
+                } else {
+                    x.innerHTML = "Geolocation is not supported by this browser.";
+                }
+            }
+            getLocation();
+
             const lat = {{ .Latitude }};
             const lon = {{ .Longitude }};
             const cityName = '{{ .CityName }}';
+
             var map = L.map('map').setView([lat, lon], 10);
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
+                maxZoom: 20,
                 attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             }).addTo(map);
         </script>

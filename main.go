@@ -40,8 +40,6 @@ type GeoLocation struct {
 }
 
 func geoLocationForCity(cityName string) (*GeoLocation, error) {
-	fmt.Println("+++loc for CITY+++", cityName)
-
 	client := &http.Client{}
 
 	encodedCityName := url.QueryEscape(html.EscapeString(cityName))
