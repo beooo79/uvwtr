@@ -53,13 +53,13 @@
                 if (value <= 10) return 'red';
                 else return 'violet';
             }
-            function showPosition(position) {
+            function setLocation(position) {
                 browserLat = position.coords.latitude;
                 browserLon = position.coords.longitude;
             }
             function getLocation() {
                 if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(showPosition);
+                    navigator.geolocation.getCurrentPosition(setLocation);
                 }
             }
             getLocation();
@@ -73,7 +73,7 @@
             console.log(modelLat, modelLon, browserLat, browserLon)
             const cityName = '{{ .CityName }}';
 
-            var map = L.map('map').setView([lat, lon], 10);
+            var map = L.map('map').setView([lat, lon], 8);
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 20,
                 attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -84,7 +84,7 @@
                 fillOpacity: 0.5,
                 radius: 12000
             }).addTo(map);
-            circle.bindPopup("UV Index " + modelUv);
+            circle.bindPopup("UV Index " + modelUv).openPopup();
         </script>
     </div>
 
