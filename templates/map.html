@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html class="theme-light">
 
 <head>
 
@@ -17,27 +17,42 @@
 </head>
 
 <body>
-
-    <div id="container1" class="container has-text-centered">
+    <div class="container is-fluid">
         <h1 class="title">UV Wetter Karte</h1>
+        <div class="block"></div>
         <p class="subtitle">Zeigt Dir die UV Lage in Deiner Umgebung an.</p>
-
+        <div class="block"></div>
         <div class="field-body">
             <div class="field">
                 <p class="control">
                 <form>
-                    <input class="input is-rounded" type="text" name="cityName"
+                    <input class="input is-rounded is-medium is-fluid" type="text" name="cityName"
                         placeholder="Gib den Namen einer Stadt ein" />
                 </form>
                 </p>
             </div>
         </div>
         <div class="block"></div>
-        <div class="container" style="height: 500px; width: 700px;" id="map"></div>
+        <div>
+            <blockquote>
+                {{ .CityName }}
+            </blockquote>
+        </div>
+        <div class="block"></div>
+        <div class="container" style="height: 500px; width: 100%;" id="map"></div>
         <script>
             const x = document.getElementById("container1");
             var browserLat = null;
             var browserLon = null;
+
+            function getColor(value) {
+                if (value <= 0) return 'gray';
+                if (value <= 2) return 'green';
+                if (value <= 5) return 'yellow';
+                if (value <= 7) return 'orange';
+                if (value <= 10) return 'red';
+                else return 'violet';
+            }
             function showPosition(position) {
                 browserLat = position.coords.latitude;
                 browserLon = position.coords.longitude;
@@ -49,19 +64,27 @@
             }
             getLocation();
 
-            let modelLat =  {{ .Latitude }};
+            let modelLat = {{ .Latitude }};
             let modelLon = {{ .Longitude }};
-            let lat = modelLat !=null ? modelLat : browserLat;
-            let lon = modelLon !=null ? modelLon : browserLon;
+            let modelUv = {{ .UVIndex }};
+            let lat = modelLat != null ? modelLat : browserLat;
+            let lon = modelLon != null ? modelLon : browserLon;
 
             console.log(modelLat, modelLon, browserLat, browserLon)
             const cityName = '{{ .CityName }}';
-            
-            var map = L.map('map').setView([lat , lon], 10);
+
+            var map = L.map('map').setView([lat, lon], 10);
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 20,
                 attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             }).addTo(map);
+            var circle = L.circle([lat, lon], {
+                color: 'red',
+                fillColor: getColor(modelUv),
+                fillOpacity: 0.5,
+                radius: 12000
+            }).addTo(map);
+            circle.bindPopup("UV Index " + modelUv);
         </script>
     </div>
 

@@ -33,6 +33,33 @@ type GeoResponse struct {
 	} `json:"results"`
 }
 
+type MetResponse struct {
+	Latitude             float64           `json:"latitude"`
+	Longitude            float64           `json:"longitude"`
+	GenerationTimeMs     float64           `json:"generationtime_ms"`
+	UtcOffsetSeconds     int               `json:"utc_offset_seconds"`
+	Timezone             string            `json:"timezone"`
+	TimezoneAbbreviation string            `json:"timezone_abbreviation"`
+	Elevation            float64           `json:"elevation"`
+	HourlyUnits          map[string]string `json:"hourly_units"`
+	Hourly               HourlyData        `json:"hourly"`
+	DailyUnits           map[string]string `json:"daily_units"`
+	Daily                DailyData         `json:"daily"`
+}
+
+type HourlyData struct {
+	Time          []string  `json:"time"`
+	Temperature2M []float64 `json:"temperature_2m"`
+	WeatherCode   []int     `json:"weather_code"`
+	Cape          []float64 `json:"cape"`
+}
+
+type DailyData struct {
+	Time               []string  `json:"time"`
+	UvIndexMax         []float64 `json:"uv_index_max"`
+	UvIndexClearSkyMax []float64 `json:"uv_index_clear_sky_max"`
+}
+
 type GeoLocation struct {
 	Name      string  `json:"name"`
 	Latitude  float64 `json:"latitude"`
@@ -79,9 +106,30 @@ func geoLocationForCity(cityName string) (*GeoLocation, error) {
 	}
 }
 
+func updateFromMeteo(geoLocation *GeoLocation) {
+	url := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&hourly=temperature_2m,weather_code,cape&daily=uv_index_max,uv_index_clear_sky_max&timezone=Europe%sBerlin&forecast_days=1", geoLocation.Latitude, geoLocation.Longitude, "%2F")
+	resp, err := http.Get(url)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	var metResp MetResponse
+	json.Unmarshal(body, &metResp)
+
+	model.UVIndex = int(metResp.Daily.UvIndexMax[0])
+}
+
 func getMapHandler(w http.ResponseWriter, req *http.Request) {
 	tmpl := template.Must(template.ParseFS(templateHTML, "templates/map.html"))
 	params := req.URL.Query()
+	model.CityName = ""
+	model.Latitude = 0
+	model.Longitude = 0
 	for k, v := range params {
 		if k == "cityName" {
 			geoResp, err := geoLocationForCity(v[0])
@@ -89,9 +137,11 @@ func getMapHandler(w http.ResponseWriter, req *http.Request) {
 				model.CityName = geoResp.Name
 				model.Latitude = geoResp.Latitude
 				model.Longitude = geoResp.Longitude
+				updateFromMeteo(geoResp)
 			}
 		}
 	}
+	fmt.Println(model)
 	tmpl.Execute(w, model)
 }
 
