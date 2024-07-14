@@ -33,7 +33,13 @@ type GeoResponse struct {
 	} `json:"results"`
 }
 
-func geoLocationForCity(cityName string) (*GeoResponse, error) {
+type GeoLocation struct {
+	Name      string  `json:"name"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+func geoLocationForCity(cityName string) (*GeoLocation, error) {
 	fmt.Println("+++loc for CITY+++", cityName)
 
 	client := &http.Client{}
@@ -64,7 +70,11 @@ func geoLocationForCity(cityName string) (*GeoResponse, error) {
 	json.Unmarshal(body, &geoResp)
 
 	if len(geoResp.Results) > 0 {
-		return &geoResp, nil
+		return &GeoLocation{
+			Name:      cityName,
+			Latitude:  geoResp.Results[0].Latitude,
+			Longitude: geoResp.Results[0].Longitude,
+		}, nil
 	} else {
 		fmt.Println("No results found")
 		return nil, errors.New("geolocation for city " + cityName + " not found")
@@ -73,32 +83,40 @@ func geoLocationForCity(cityName string) (*GeoResponse, error) {
 
 func getMapHandler(w http.ResponseWriter, req *http.Request) {
 	tmpl := template.Must(template.ParseFS(templateHTML, "templates/map.html"))
+	params := req.URL.Query()
+	for k, v := range params {
+		if k == "cityName" {
+			geoResp, err := geoLocationForCity(v[0])
+			if err == nil {
+				model.CityName = geoResp.Name
+				model.Latitude = geoResp.Latitude
+				model.Longitude = geoResp.Longitude
+			}
+		}
+	}
 	tmpl.Execute(w, model)
 }
 
 func getLocationHandler(w http.ResponseWriter, req *http.Request) {
 	params := req.URL.Query()
-	var cityName string
 	for k, v := range params {
 		if k == "cityName" {
-			cityName = v[0]
+			w.Header().Set("Content-Type", "application/json")
+			geoResp, _ := geoLocationForCity(v[0])
+			json.NewEncoder(w).Encode(geoResp)
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		geoResp, _ := geoLocationForCity(cityName)
-		json.NewEncoder(w).Encode(geoResp)
 	}
 }
 
 func main() {
-	fmt.Println(geoLocationForCity("Bernhausen"))
-
 	// http server init
 	mux := http.NewServeMux()
 
+	model = &Model{}
+
 	// http endpoints
 	mux.HandleFunc("GET /loc", getLocationHandler)
-	mux.HandleFunc("GET /uv", getMapHandler)
+	mux.HandleFunc("GET /", getMapHandler)
 
 	// start http server
 	log.Fatal(http.ListenAndServe(":3000", mux))
