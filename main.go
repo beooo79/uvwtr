@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
-
-	"github.com/hectormalot/omgo"
+	"net/url"
 )
 
 type GeoResponse struct {
@@ -17,60 +18,43 @@ type GeoResponse struct {
 	} `json:"results"`
 }
 
-func main() {
+func geoLocationForCity(cityName string) (*GeoResponse, error) {
+	client := &http.Client{}
 
-	cityName := "Würzburg"
-	url := fmt.Sprintf("https://geocoding-api.open-meteo.com/v1/search?name=%s&count=1&language=de&format=json", cityName)
+	encodedCityName := url.QueryEscape(html.EscapeString(cityName))
+	url := fmt.Sprintf("https://geocoding-api.open-meteo.com/v1/search?name=%s&count=1&language=de&format=json", encodedCityName)
 
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
 	if err != nil {
 		fmt.Println(err)
-		return
+		return nil, err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println(err)
-		return
+		return nil, err
 	}
+
 	var geoResp GeoResponse
-	fmt.Println(string(url))
-	fmt.Println(string(body))
 	json.Unmarshal(body, &geoResp)
 
 	if len(geoResp.Results) > 0 {
-		fmt.Printf("Latitude: %f, Longitude: %f\n", geoResp.Results[0].Latitude, geoResp.Results[0].Longitude)
+		return &geoResp, nil
 	} else {
 		fmt.Println("No results found")
-		return
+		return nil, errors.New("geolocation for city " + cityName + " not found")
 	}
+}
 
-	c, _ := omgo.NewClient()
+func main() {
+	fmt.Println(geoLocationForCity("Bernhausen"))
 
-	// Get the current weather
-	loc, _ := omgo.NewLocation(geoResp.Results[0].Latitude, geoResp.Results[0].Longitude)
-	res, _ := c.CurrentWeather(context.Background(), loc, nil)
-	fmt.Printf("The temperature in %s is %f (code: %f)", cityName, res.Temperature, res.WeatherCode)
-	fmt.Println()
-
-	// Get the humidity and cloud cover forecast,
-	// including the last 2 days and non-metric units
-	opts := omgo.Options{
-		TemperatureUnit:   "celsius",
-		WindspeedUnit:     "kmh",
-		PrecipitationUnit: "mm",
-		Timezone:          "Europe/Berlin",
-		PastDays:          2,
-		HourlyMetrics:     []string{"cloudcover, relativehumidity_2m"},
-		DailyMetrics:      []string{"temperature_2m_max"},
-	}
-
-	fore, _ := c.Forecast(context.Background(), loc, &opts)
-	fmt.Println("forecast", fore)
-	// res.HourlyMetrics["cloudcover"] contains an array of cloud coverage predictions
-	// res.HourlyMetrics["relativehumidity_2m"] contains an array of relative humidity predictions
-	// res.HourlyTimes contains the timestamps for each prediction
-	// res.DailyMetrics["temperature_2m_max"] contains daily maximum values for the temperature_2m metric
-	// res.DailyTimes contains the timestamps for all daily predictions
 }
