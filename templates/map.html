@@ -12,13 +12,13 @@
     <!-- Make sure you put this AFTER Leaflet's CSS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
+    <script src="https://unpkg.com/htmx.org@2.0.1"></script>
 
 </head>
 
 <body>
     <div class="container is-fluid">
-        <h1 class="title">UV Wetter Karte</h1>
+        <h1 class="title is-1">UV Wetter Karte</h1>
         <div class="block"></div>
         <p class="subtitle">Zeigt Dir die UV Lage in Deiner Umgebung an.</p>
         <div class="block"></div>
@@ -28,65 +28,53 @@
                 <form>
                     <input class="input is-rounded is-medium is-fluid" type="text" name="cityName"
                         placeholder="Gib den Namen einer Stadt ein" />
+                        <div class="block"></div>
+                        <button class="button is-link" type="submit">Aktualisiere Karte</button>
+                        <span class="tag is-success is-large">{{ .CityName }}</span>
+                        <div class="block"></div>
                 </form>
                 </p>
             </div>
         </div>
         <div class="block"></div>
-        <div>
-            <blockquote>
-                {{ .CityName }}
-            </blockquote>
-        </div>
-        <div class="block"></div>
         <div class="container" style="height: 500px; width: 100%;" id="map"></div>
         <script>
-            const x = document.getElementById("container1");
-            var browserLat = null;
-            var browserLon = null;
-
-            function getColor(value) {
-                if (value <= 0) return 'gray';
-                if (value <= 2) return 'green';
-                if (value <= 5) return 'yellow';
-                if (value <= 7) return 'orange';
-                if (value <= 10) return 'red';
-                else return 'violet';
-            }
-            function setLocation(position) {
-                browserLat = position.coords.latitude;
-                browserLon = position.coords.longitude;
-            }
             function getLocation() {
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(setLocation);
-                }
+                return new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject);
+                });
             }
-            getLocation();
-            
-            {{range .Data}}
-            let modelLat = {{ .Latitude }}
-            let modelLon = {{ .Longitude }}
-            let modelUv = {{ .Daily.UvIndexMax[0] }}
-            let lat = modelLat != null ? modelLat : browserLat;
-            let lon = modelLon != null ? modelLon : browserLon;
-            {{end}}
 
-            console.log(modelLat, modelLon, browserLat, browserLon)
-            const cityName = '{{ .CityName }}';
+                function getColor(value) {
+                    if (value <= 0) return 'gray';
+                    if (value <= 2) return 'green';
+                    if (value <= 5) return 'yellow';
+                    if (value <= 7) return 'orange';
+                    if (value <= 10) return 'red';
+                    else return 'violet';
+                }
 
-            var map = L.map('map').setView([lat, lon], 8);
-            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 20,
-                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            }).addTo(map);
-            var circle = L.circle([lat, lon], {
-                color: 'red',
-                fillColor: getColor(modelUv),
-                fillOpacity: 0.5,
-                radius: 12000
-            }).addTo(map);
-            circle.bindPopup("UV Index " + modelUv).openPopup();
+                const cityName = '{{ .CityName }}';
+
+            {{ range.Data }}
+                var lat = {{ .Latitude }};
+                var lon = {{ .Longitude }};
+                var uv = {{ .UvIndexMax }};
+            {{ end }}
+
+            const map = L.map('map').setView([lat, lon], 8);
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 20,
+                    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    }).addTo(map);
+            const circle = L.circle([lat, lon], {
+                        color: 'red',
+                        fillColor: getColor(uv),
+                        fillOpacity: 0.5,
+                        radius: 12000
+                    }).addTo(map);
+                circle.bindPopup("UV Index " + modelUv).openPopup();
+
         </script>
     </div>
 

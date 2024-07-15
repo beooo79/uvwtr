@@ -11,13 +11,17 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"text/template"
 )
 
 //go:embed templates
 var templateHTML embed.FS
 
-var model *Model
+var model *Model = &Model{
+	Data:     make([]MetResponse, 0, 10),
+	CityName: "Unknown",
+}
 
 type Model struct {
 	Data     []MetResponse
@@ -32,10 +36,11 @@ type GeoResponse struct {
 }
 
 type MetResponse struct {
-	Latitude  float64   `json:"latitude"`
-	Longitude float64   `json:"longitude"`
-	Elevation float64   `json:"elevation"`
-	Daily     DailyData `json:"daily"`
+	Latitude   float64   `json:"latitude"`
+	Longitude  float64   `json:"longitude"`
+	Elevation  float64   `json:"elevation"`
+	Daily      DailyData `json:"daily"`
+	UvIndexMax float64   `json:"uv_index_max"`
 }
 
 type DailyData struct {
@@ -104,24 +109,41 @@ func metOfLocation(geoLocation *GeoLocation) MetResponse {
 	}
 	var metResp MetResponse
 	json.Unmarshal(body, &metResp)
-
+	metResp.UvIndexMax = metResp.Daily.UvIndexMax[0]
 	return metResp
 }
 
-func getMapHandler(w http.ResponseWriter, req *http.Request) {
+func getMap(w http.ResponseWriter, req *http.Request) {
 	tmpl := template.Must(template.ParseFS(templateHTML, "templates/map.html"))
 	params := req.URL.Query()
+
+	isCity := false
+	city := ""
+	var lat float64
+	var lon float64
+	var geoResp *GeoLocation
 	for k, v := range params {
+		if k == "lat" && !isCity {
+			lat, _ = strconv.ParseFloat(v[0], 64)
+		}
+		if k == "lon" && !isCity {
+			lon, _ = strconv.ParseFloat(v[0], 64)
+		}
 		if k == "cityName" {
-			geoResp, err := geoLocationForCity(v[0])
-			if err == nil {
-				// data location is valid, create MetData set
-				data := metOfLocation(geoResp)
-				model.Data = append(model.Data, data)
-				model.CityName = geoResp.Name
+			isCity = true
+			city = "Stuttgart"
+			if len(v[0]) > 0 {
+				city = v[0]
 			}
 		}
 	}
+	if isCity {
+		geoResp, _ = geoLocationForCity(city)
+	} else {
+		geoResp = &GeoLocation{Name: "Location", Latitude: lat, Longitude: lon}
+	}
+	model.Data = append(model.Data, metOfLocation(geoResp))
+	model.CityName = geoResp.Name
 	fmt.Println(model)
 	tmpl.Execute(w, model)
 }
@@ -141,14 +163,9 @@ func main() {
 	// http server init
 	mux := http.NewServeMux()
 
-	model = &Model{
-		Data:     make([]MetResponse, 0, 10),
-		CityName: "Unknown",
-	}
-
 	// http endpoints
 	mux.HandleFunc("GET /loc", getLocationHandler)
-	mux.HandleFunc("GET /", getMapHandler)
+	mux.HandleFunc("GET /", getMap)
 
 	// start http server
 	log.Fatal(http.ListenAndServe(":3000", mux))
