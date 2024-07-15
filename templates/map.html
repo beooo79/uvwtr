@@ -63,12 +63,14 @@
                 }
             }
             getLocation();
-
-            let modelLat = {{ .Latitude }};
-            let modelLon = {{ .Longitude }};
-            let modelUv = {{ .UVIndex }};
+            
+            {{range .Data}}
+            let modelLat = {{ .Latitude }}
+            let modelLon = {{ .Longitude }}
+            let modelUv = {{ .Daily.UvIndexMax[0] }}
             let lat = modelLat != null ? modelLat : browserLat;
             let lon = modelLon != null ? modelLon : browserLon;
+            {{end}}
 
             console.log(modelLat, modelLon, browserLat, browserLon)
             const cityName = '{{ .CityName }}';

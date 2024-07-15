@@ -20,10 +20,8 @@ var templateHTML embed.FS
 var model *Model
 
 type Model struct {
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-	UVIndex   int     `json:"uvIndex"`
-	CityName  string  `json:"cityName"`
+	Data     []MetResponse
+	CityName string `json:"cityName"` // refCity
 }
 
 type GeoResponse struct {
@@ -34,24 +32,10 @@ type GeoResponse struct {
 }
 
 type MetResponse struct {
-	Latitude             float64           `json:"latitude"`
-	Longitude            float64           `json:"longitude"`
-	GenerationTimeMs     float64           `json:"generationtime_ms"`
-	UtcOffsetSeconds     int               `json:"utc_offset_seconds"`
-	Timezone             string            `json:"timezone"`
-	TimezoneAbbreviation string            `json:"timezone_abbreviation"`
-	Elevation            float64           `json:"elevation"`
-	HourlyUnits          map[string]string `json:"hourly_units"`
-	Hourly               HourlyData        `json:"hourly"`
-	DailyUnits           map[string]string `json:"daily_units"`
-	Daily                DailyData         `json:"daily"`
-}
-
-type HourlyData struct {
-	Time          []string  `json:"time"`
-	Temperature2M []float64 `json:"temperature_2m"`
-	WeatherCode   []int     `json:"weather_code"`
-	Cape          []float64 `json:"cape"`
+	Latitude  float64   `json:"latitude"`
+	Longitude float64   `json:"longitude"`
+	Elevation float64   `json:"elevation"`
+	Daily     DailyData `json:"daily"`
 }
 
 type DailyData struct {
@@ -106,38 +90,35 @@ func geoLocationForCity(cityName string) (*GeoLocation, error) {
 	}
 }
 
-func updateFromMeteo(geoLocation *GeoLocation) {
+func metOfLocation(geoLocation *GeoLocation) MetResponse {
 	url := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&hourly=temperature_2m,weather_code,cape&daily=uv_index_max,uv_index_clear_sky_max&timezone=Europe%sBerlin&forecast_days=1", geoLocation.Latitude, geoLocation.Longitude, "%2F")
 	resp, err := http.Get(url)
 	if err != nil {
-		return
+		return MetResponse{}
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println(err)
-		return
+		return MetResponse{}
 	}
 	var metResp MetResponse
 	json.Unmarshal(body, &metResp)
 
-	model.UVIndex = int(metResp.Daily.UvIndexMax[0])
+	return metResp
 }
 
 func getMapHandler(w http.ResponseWriter, req *http.Request) {
 	tmpl := template.Must(template.ParseFS(templateHTML, "templates/map.html"))
 	params := req.URL.Query()
-	model.CityName = ""
-	model.Latitude = 0
-	model.Longitude = 0
 	for k, v := range params {
 		if k == "cityName" {
 			geoResp, err := geoLocationForCity(v[0])
 			if err == nil {
+				// data location is valid, create MetData set
+				data := metOfLocation(geoResp)
+				model.Data = append(model.Data, data)
 				model.CityName = geoResp.Name
-				model.Latitude = geoResp.Latitude
-				model.Longitude = geoResp.Longitude
-				updateFromMeteo(geoResp)
 			}
 		}
 	}
@@ -160,7 +141,10 @@ func main() {
 	// http server init
 	mux := http.NewServeMux()
 
-	model = &Model{}
+	model = &Model{
+		Data:     make([]MetResponse, 0, 10),
+		CityName: "Unknown",
+	}
 
 	// http endpoints
 	mux.HandleFunc("GET /loc", getLocationHandler)
